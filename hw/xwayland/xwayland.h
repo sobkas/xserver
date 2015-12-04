@@ -50,6 +50,7 @@ struct xwl_screen {
     int height;
     int depth;
     ScreenPtr screen;
+    WindowPtr pointer_limbo_window;
     int expecting_event;
     enum RootClipMode root_clip_mode;
 
@@ -119,6 +120,13 @@ struct xwl_touch {
     struct xorg_list link_touch;
 };
 
+struct xwl_pointer_warp_emulator {
+    struct xwl_seat *xwl_seat;
+
+    struct zwp_relative_pointer_v1 *relative_pointer;
+    struct zwp_locked_pointer_v1 *locked_pointer;
+};
+
 struct xwl_seat {
     DeviceIntPtr pointer;
     DeviceIntPtr keyboard;
@@ -145,6 +153,7 @@ struct xwl_seat {
     char *keymap;
     struct wl_surface *keyboard_focus;
 
+    struct xwl_pointer_warp_emulator *pointer_warp_emulator;
     struct xorg_list sync_pending;
 };
 
@@ -172,6 +181,8 @@ void xwl_seat_set_cursor(struct xwl_seat *xwl_seat);
 void xwl_seat_destroy(struct xwl_seat *xwl_seat);
 
 void xwl_seat_clear_touch(struct xwl_seat *xwl_seat, WindowPtr window);
+
+void xwl_seat_emulate_pointer_warp(struct xwl_seat *xwl_seat, int x, int y);
 
 Bool xwl_screen_init_output(struct xwl_screen *xwl_screen);
 

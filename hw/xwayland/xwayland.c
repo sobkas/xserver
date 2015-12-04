@@ -133,6 +133,19 @@ xwl_close_screen(ScreenPtr screen)
 }
 
 static void
+xwl_cursor_warped_to(DeviceIntPtr device,
+                     ScreenPtr screen,
+                     ClientPtr client,
+                     WindowPtr window,
+                     SpritePtr sprite,
+                     int x, int y)
+{
+    struct xwl_seat *xwl_seat = device->public.devicePrivate;
+
+    xwl_seat_emulate_pointer_warp(xwl_seat, x, y);
+}
+
+static void
 damage_report(DamagePtr pDamage, RegionPtr pRegion, void *data)
 {
     struct xwl_window *xwl_window = data;
@@ -724,6 +737,8 @@ xwl_screen_init(ScreenPtr pScreen, int argc, char **argv)
 
     xwl_screen->CloseScreen = pScreen->CloseScreen;
     pScreen->CloseScreen = xwl_close_screen;
+
+    pScreen->CursorWarpedTo = xwl_cursor_warped_to;
 
     return ret;
 }

@@ -47,6 +47,9 @@ struct sync_pending {
 };
 
 static void
+xwl_seat_destroy_pointer_warp_emulator(struct xwl_seat *xwl_seat);
+
+static void
 xwl_pointer_control(DeviceIntPtr device, PtrCtrl *ctrl)
 {
     /* Nothing to do, dix handles all settings */
@@ -1021,6 +1024,107 @@ xwl_seat_clear_touch(struct xwl_seat *xwl_seat, WindowPtr window)
             free(xwl_touch);
         }
     }
+}
+
+static void
+xwl_locked_pointer_locked(void *data,
+                          struct zwp_locked_pointer_v1 *zwp_locked_pointer_v1)
+{
+}
+
+static void
+xwl_locked_pointer_unlocked(void *data,
+                            struct zwp_locked_pointer_v1 *zwp_locked_pointer_v1)
+{
+}
+
+static const struct zwp_locked_pointer_v1_listener locked_pointer_listener = {
+    xwl_locked_pointer_locked,
+    xwl_locked_pointer_unlocked,
+};
+
+static struct xwl_pointer_warp_emulator *
+xwl_pointer_warp_emulator_create(struct xwl_seat *xwl_seat)
+{
+    struct xwl_screen *xwl_screen = xwl_seat->xwl_screen;
+    struct zwp_relative_pointer_manager_v1 *relative_pointer_manager =
+        xwl_screen->relative_pointer_manager;
+    struct zwp_pointer_constraints_v1 *pointer_constraints =
+        xwl_screen->pointer_constraints;
+    struct xwl_pointer_warp_emulator *warp_emulator;
+
+    warp_emulator = calloc(sizeof *warp_emulator, 1);
+    if (!warp_emulator) {
+        ErrorF("xwl_pointer_warp_emulator_create ENOMEM");
+        return NULL;
+    }
+
+    warp_emulator->xwl_seat = xwl_seat;
+
+    warp_emulator->relative_pointer =
+        zwp_relative_pointer_manager_v1_get_relative_pointer(relative_pointer_manager,
+                                                             xwl_seat->wl_pointer);
+    warp_emulator->locked_pointer =
+        zwp_pointer_constraints_v1_lock_pointer(pointer_constraints,
+                                                xwl_seat->focus_window->surface,
+                                                xwl_seat->wl_pointer,
+                                                NULL,
+                                                ZWP_POINTER_CONSTRAINTS_V1_LIFETIME_PERSISTENT);
+    zwp_locked_pointer_v1_add_listener(warp_emulator->locked_pointer,
+                                       &locked_pointer_listener,
+                                       warp_emulator);
+
+    return warp_emulator;
+}
+
+static void
+xwl_pointer_warp_emulator_destroy(struct xwl_pointer_warp_emulator *warp_emulator)
+{
+    zwp_relative_pointer_v1_destroy(warp_emulator->relative_pointer);
+    zwp_locked_pointer_v1_destroy(warp_emulator->locked_pointer);
+    free(warp_emulator);
+}
+
+static void
+xwl_pointer_warp_emulator_warp(struct xwl_pointer_warp_emulator *warp_emulator,
+                               int x, int y)
+{
+}
+
+void
+xwl_seat_emulate_pointer_warp(struct xwl_seat *xwl_seat, int x, int y)
+{
+    struct xwl_screen *xwl_screen = xwl_seat->xwl_screen;
+
+    if (!xwl_screen->relative_pointer_manager ||
+        !xwl_screen->pointer_constraints)
+        return;
+
+    /* FIXME: How to cancel an emulation if the requester is another client
+     * than the focused one?
+     */
+    if (!xwl_seat->focus_window)
+        return;
+
+    if (!xwl_seat->pointer_warp_emulator) {
+        xwl_seat->pointer_warp_emulator =
+            xwl_pointer_warp_emulator_create(xwl_seat);
+    }
+
+    if (!xwl_seat->pointer_warp_emulator)
+        return;
+
+    xwl_pointer_warp_emulator_warp(xwl_seat->pointer_warp_emulator, x, y);
+}
+
+static void
+xwl_seat_destroy_pointer_warp_emulator(struct xwl_seat *xwl_seat)
+{
+    if (!xwl_seat->pointer_warp_emulator)
+        return;
+
+    xwl_pointer_warp_emulator_destroy(xwl_seat->pointer_warp_emulator);
+    xwl_seat->pointer_warp_emulator = NULL;
 }
 
 void
