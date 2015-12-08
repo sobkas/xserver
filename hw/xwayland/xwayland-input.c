@@ -922,6 +922,32 @@ xwl_seat_clear_touch(struct xwl_seat *xwl_seat, WindowPtr window)
 }
 
 static void
+xwl_pointer_warp_emulator_set_fake_pos(struct xwl_pointer_warp_emulator *warp_emulator,
+                                       int x,
+                                       int y)
+{
+    struct zwp_locked_pointer_v1 *locked_pointer =
+        warp_emulator->locked_pointer;
+    WindowPtr window;
+    int sx, sy;
+
+    warp_emulator->fake_x = x;
+    warp_emulator->fake_y = y;
+
+    window = warp_emulator->xwl_seat->focus_window->window;
+    if (x >= window->drawable.x ||
+        y >= window->drawable.y ||
+        x < (window->drawable.x + window->drawable.width) ||
+        y < (window->drawable.x + window->drawable.height)) {
+        sx = x - window->drawable.x;
+        sy = y - window->drawable.y;
+        zwp_locked_pointer_v1_set_cursor_position_hint(locked_pointer,
+                                                       sx, sy);
+        wl_surface_commit(warp_emulator->xwl_seat->focus_window->surface);
+    }
+}
+
+static void
 xwl_pointer_warp_emulator_handle_relative_motion(struct xwl_pointer_warp_emulator *warp_emulator,
                                                  int dx,
                                                  int dy)
@@ -937,8 +963,7 @@ xwl_pointer_warp_emulator_handle_relative_motion(struct xwl_pointer_warp_emulato
     valuator_mask_set(&mask, 0, x);
     valuator_mask_set(&mask, 1, y);
 
-    warp_emulator->fake_x = x;
-    warp_emulator->fake_y = y;
+    xwl_pointer_warp_emulator_set_fake_pos(warp_emulator, x, y);
 
     QueuePointerEvents(xwl_seat->pointer, MotionNotify, 0,
                        POINTER_ABSOLUTE | POINTER_SCREEN, &mask);
@@ -1047,8 +1072,7 @@ static void
 xwl_pointer_warp_emulator_warp(struct xwl_pointer_warp_emulator *warp_emulator,
                                int x, int y)
 {
-    warp_emulator->fake_x = x;
-    warp_emulator->fake_y = y;
+    xwl_pointer_warp_emulator_set_fake_pos(warp_emulator, x, y);
 }
 
 void
