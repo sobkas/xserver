@@ -3608,6 +3608,9 @@ ProcWarpPointer(ClientPtr client)
     else if (!PointerConfinedToScreen(dev)) {
         NewCurrentScreen(dev, newScreen, x, y);
     }
+    if (*newScreen->CursorWarpedTo)
+        (*newScreen->CursorWarpedTo) (dev, newScreen, client,
+                                      dest, pSprite, x, y);
     return Success;
 }
 
