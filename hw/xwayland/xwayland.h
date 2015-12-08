@@ -123,6 +123,12 @@ struct xwl_touch {
 struct xwl_pointer_warp_emulator {
     struct xwl_seat *xwl_seat;
 
+    int fake_x;
+    int fake_y;
+
+    wl_fixed_t dx_frac;
+    wl_fixed_t dy_frac;
+
     struct zwp_relative_pointer_v1 *relative_pointer;
     struct zwp_locked_pointer_v1 *locked_pointer;
 };
