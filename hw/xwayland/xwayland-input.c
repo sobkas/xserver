@@ -1076,7 +1076,9 @@ xwl_pointer_warp_emulator_warp(struct xwl_pointer_warp_emulator *warp_emulator,
 }
 
 void
-xwl_seat_emulate_pointer_warp(struct xwl_seat *xwl_seat, int x, int y)
+xwl_seat_emulate_pointer_warp(struct xwl_seat *xwl_seat,
+                              struct xwl_window *xwl_window,
+                              int x, int y)
 {
     struct xwl_screen *xwl_screen = xwl_seat->xwl_screen;
 
@@ -1084,10 +1086,7 @@ xwl_seat_emulate_pointer_warp(struct xwl_seat *xwl_seat, int x, int y)
         !xwl_screen->pointer_constraints)
         return;
 
-    /* FIXME: How to cancel an emulation if the requester is another client
-     * than the focused one?
-     */
-    if (!xwl_seat->focus_window)
+    if (xwl_seat->focus_window != xwl_window)
         return;
 
     if (!xwl_seat->pointer_warp_emulator) {

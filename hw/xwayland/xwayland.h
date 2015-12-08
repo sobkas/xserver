@@ -183,7 +183,9 @@ void xwl_seat_destroy(struct xwl_seat *xwl_seat);
 
 void xwl_seat_clear_touch(struct xwl_seat *xwl_seat, WindowPtr window);
 
-void xwl_seat_emulate_pointer_warp(struct xwl_seat *xwl_seat, int x, int y);
+void xwl_seat_emulate_pointer_warp(struct xwl_seat *xwl_seat,
+                                   struct xwl_window *xwl_window,
+                                   int x, int y);
 
 Bool xwl_screen_init_output(struct xwl_screen *xwl_screen);
 
