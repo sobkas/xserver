@@ -53,8 +53,7 @@ AbortDDX(enum ExitCode error)
 void
 OsVendorInit(void)
 {
-    if (serverGeneration == 1)
-        ForceClockId(CLOCK_MONOTONIC);
+    ForceClockId(CLOCK_MONOTONIC);
 }
 
 void
