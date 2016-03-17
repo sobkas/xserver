@@ -43,9 +43,9 @@
         (miPointerPtr)dixLookupPrivate(&(GetMaster(dev, MASTER_POINTER))->devPrivates, miPointerPrivKey))
 
 static void
-xwl_pointer_warp_emulator_handle_relative_motion(struct xwl_pointer_warp_emulator *warp_emulator,
-                                                 int dx,
-                                                 int dy);
+xwl_pointer_warp_emulator_handle_motion(struct xwl_pointer_warp_emulator *warp_emulator,
+                                        double dx,
+                                        double dy);
 
 static void
 xwl_seat_destroy_pointer_warp_emulator(struct xwl_seat *xwl_seat);
@@ -937,9 +937,6 @@ xwl_pointer_warp_emulator_set_fake_pos(struct xwl_pointer_warp_emulator *warp_em
     WindowPtr window;
     int sx, sy;
 
-    warp_emulator->fake_x = x;
-    warp_emulator->fake_y = y;
-
     window = warp_emulator->xwl_seat->focus_window->window;
     if (x >= window->drawable.x ||
         y >= window->drawable.y ||
@@ -955,32 +952,32 @@ xwl_pointer_warp_emulator_set_fake_pos(struct xwl_pointer_warp_emulator *warp_em
 }
 
 static void
-xwl_pointer_warp_emulator_handle_relative_motion(struct xwl_pointer_warp_emulator *warp_emulator,
-                                                 int dx,
-                                                 int dy)
+xwl_pointer_warp_emulator_handle_motion(struct xwl_pointer_warp_emulator *warp_emulator,
+                                        double dx,
+                                        double dy)
 {
     struct xwl_seat *xwl_seat = warp_emulator->xwl_seat;
     ValuatorMask mask;
-    int x, y;
     WindowPtr window;
+    int x, y;
 
-    x = warp_emulator->fake_x + dx;
-    y = warp_emulator->fake_y + dy;
     valuator_mask_zero(&mask);
-    valuator_mask_set(&mask, 0, x);
-    valuator_mask_set(&mask, 1, y);
-
-    xwl_pointer_warp_emulator_set_fake_pos(warp_emulator, x, y);
+    valuator_mask_set_double(&mask, 0, dx);
+    valuator_mask_set_double(&mask, 1, dy);
 
     QueuePointerEvents(xwl_seat->pointer, MotionNotify, 0,
-                       POINTER_ABSOLUTE | POINTER_SCREEN, &mask);
+                       POINTER_RELATIVE, &mask);
 
     window = xwl_seat->focus_window->window;
+    miPointerGetPosition(xwl_seat->pointer, &x, &y);
+
     if (x < window->drawable.x ||
         y < window->drawable.y ||
         x >= (window->drawable.x + window->drawable.width) ||
         y >= (window->drawable.x + window->drawable.height))
         xwl_seat_destroy_pointer_warp_emulator(xwl_seat);
+    else
+        xwl_pointer_warp_emulator_set_fake_pos(warp_emulator, x, y);
 }
 
 static void
@@ -990,23 +987,17 @@ xwl_relative_pointer_relative_motion(void *data,
                                      uint32_t utime_lo,
                                      wl_fixed_t dxf,
                                      wl_fixed_t dyf,
-                                     wl_fixed_t dx_unaccel,
-                                     wl_fixed_t dy_unaccel)
+                                     wl_fixed_t dx_unaccelf,
+                                     wl_fixed_t dy_unaccelf)
 {
     struct xwl_pointer_warp_emulator *warp_emulator = data;
-    int dx, dy;
+    double dx, dy;
 
-    dxf += warp_emulator->dx_frac;
-    dyf += warp_emulator->dy_frac;
+    dx = wl_fixed_to_double(dxf);
+    dy = wl_fixed_to_double(dyf);
 
-    dx = wl_fixed_to_int(dxf);
-    dy = wl_fixed_to_int(dyf);
-
-    warp_emulator->dx_frac = dxf - wl_fixed_from_int(dx);
-    warp_emulator->dy_frac = dyf - wl_fixed_from_int(dy);
-
-    if (dx != 0 || dy != 0)
-        xwl_pointer_warp_emulator_handle_relative_motion(warp_emulator, dx, dy);
+    xwl_pointer_warp_emulator_handle_motion(warp_emulator,
+                                            dx, dy);
 }
 
 static const struct zwp_relative_pointer_v1_listener relative_pointer_listener = {
