@@ -186,6 +186,8 @@ void xwl_seat_emulate_pointer_warp(struct xwl_seat *xwl_seat,
                                    struct xwl_window *xwl_window,
                                    int x, int y);
 
+void xwl_seat_cursor_visibility_changed(struct xwl_seat *xwl_seat);
+
 Bool xwl_screen_init_output(struct xwl_screen *xwl_screen);
 
 struct xwl_output *xwl_output_create(struct xwl_screen *xwl_screen,

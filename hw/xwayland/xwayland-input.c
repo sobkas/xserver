@@ -1216,6 +1216,14 @@ xwl_seat_emulate_pointer_warp(struct xwl_seat *xwl_seat,
     xwl_pointer_warp_emulator_warp(xwl_seat->pointer_warp_emulator, x, y);
 }
 
+void
+xwl_seat_cursor_visibility_changed(struct xwl_seat *xwl_seat)
+{
+    if (xwl_seat->pointer_warp_emulator &&
+        xwl_seat->x_cursor != NULL)
+        xwl_seat_destroy_pointer_warp_emulator(xwl_seat);
+}
+
 static void
 xwl_seat_destroy_pointer_warp_emulator(struct xwl_seat *xwl_seat)
 {
