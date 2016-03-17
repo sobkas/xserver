@@ -314,6 +314,12 @@ pointer_handle_motion(void *data, struct wl_pointer *pointer,
     if (!xwl_seat->focus_window)
         return;
 
+    /* If we are currently emulating pointer warping, we don't want to see any
+     * real non-emulated motion events interfere with our fake event stream.
+     */
+    if (xwl_seat->pointer_warp_emulator)
+        return;
+
     dx = xwl_seat->focus_window->window->drawable.x;
     dy = xwl_seat->focus_window->window->drawable.y;
 
