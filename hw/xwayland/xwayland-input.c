@@ -1059,7 +1059,8 @@ xwl_pointer_warp_emulator_set_fake_pos(struct xwl_pointer_warp_emulator *warp_em
         sx = x - window->drawable.x;
         sy = y - window->drawable.y;
         zwp_locked_pointer_v1_set_cursor_position_hint(locked_pointer,
-                                                       sx, sy);
+                                                       wl_fixed_from_int(sx),
+                                                       wl_fixed_from_int(sy));
         wl_surface_commit(warp_emulator->xwl_seat->focus_window->surface);
     }
 }
