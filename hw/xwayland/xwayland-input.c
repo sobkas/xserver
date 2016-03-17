@@ -45,7 +45,9 @@
 static void
 xwl_pointer_warp_emulator_handle_motion(struct xwl_pointer_warp_emulator *warp_emulator,
                                         double dx,
-                                        double dy);
+                                        double dy,
+                                        double dx_unaccel,
+                                        double dy_unaccel);
 
 static void
 xwl_seat_destroy_pointer_warp_emulator(struct xwl_seat *xwl_seat);
@@ -954,7 +956,9 @@ xwl_pointer_warp_emulator_set_fake_pos(struct xwl_pointer_warp_emulator *warp_em
 static void
 xwl_pointer_warp_emulator_handle_motion(struct xwl_pointer_warp_emulator *warp_emulator,
                                         double dx,
-                                        double dy)
+                                        double dy,
+                                        double dx_unaccel,
+                                        double dy_unaccel)
 {
     struct xwl_seat *xwl_seat = warp_emulator->xwl_seat;
     ValuatorMask mask;
@@ -962,8 +966,8 @@ xwl_pointer_warp_emulator_handle_motion(struct xwl_pointer_warp_emulator *warp_e
     int x, y;
 
     valuator_mask_zero(&mask);
-    valuator_mask_set_double(&mask, 0, dx);
-    valuator_mask_set_double(&mask, 1, dy);
+    valuator_mask_set_unaccelerated(&mask, 0, dx, dx_unaccel);
+    valuator_mask_set_unaccelerated(&mask, 1, dy, dy_unaccel);
 
     QueuePointerEvents(xwl_seat->pointer, MotionNotify, 0,
                        POINTER_RELATIVE, &mask);
@@ -991,13 +995,16 @@ xwl_relative_pointer_relative_motion(void *data,
                                      wl_fixed_t dy_unaccelf)
 {
     struct xwl_pointer_warp_emulator *warp_emulator = data;
-    double dx, dy;
+    double dx, dy, dx_unaccel, dy_unaccel;
 
     dx = wl_fixed_to_double(dxf);
     dy = wl_fixed_to_double(dyf);
+    dx_unaccel = wl_fixed_to_double(dx_unaccelf);
+    dy_unaccel = wl_fixed_to_double(dy_unaccelf);
 
     xwl_pointer_warp_emulator_handle_motion(warp_emulator,
-                                            dx, dy);
+                                            dx, dy,
+                                            dx_unaccel, dy_unaccel);
 }
 
 static const struct zwp_relative_pointer_v1_listener relative_pointer_listener = {
