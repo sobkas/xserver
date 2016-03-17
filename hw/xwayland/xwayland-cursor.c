@@ -27,6 +27,7 @@
 #include "xwayland.h"
 
 #include <mipointer.h>
+#include <pixmap.h>
 
 static DevPrivateKeyRec xwl_cursor_private_key;
 
