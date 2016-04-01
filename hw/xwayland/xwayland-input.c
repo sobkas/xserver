@@ -100,9 +100,9 @@ xwl_pointer_proc(DeviceIntPtr device, int what)
 
         /* Valuators */
         InitValuatorAxisStruct(device, 0, axes_labels[0],
-                               0, 0xFFFF, 10000, 0, 10000, Absolute);
+                               -1, -1, 0, 0, 0, Absolute);
         InitValuatorAxisStruct(device, 1, axes_labels[1],
-                               0, 0xFFFF, 10000, 0, 10000, Absolute);
+                               -1, -1, 0, 0, 0, Absolute);
         InitValuatorAxisStruct(device, 2, axes_labels[2],
                                NO_AXIS_LIMITS, NO_AXIS_LIMITS, 0, 0, 0, Relative);
         InitValuatorAxisStruct(device, 3, axes_labels[3],
