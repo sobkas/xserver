@@ -58,6 +58,9 @@ static void
 xwl_seat_destroy_pointer_warp_emulator(struct xwl_seat *xwl_seat);
 
 static void
+xwl_seat_destroy_confined_pointer(struct xwl_seat *xwl_seat);
+
+static void
 xwl_pointer_control(DeviceIntPtr device, PtrCtrl *ctrl)
 {
     /* Nothing to do, dix handles all settings */
@@ -1191,6 +1194,16 @@ xwl_pointer_warp_emulator_warp(struct xwl_pointer_warp_emulator *warp_emulator,
     xwl_pointer_warp_emulator_set_fake_pos(warp_emulator, x, y);
 }
 
+static void
+xwl_seat_create_pointer_warp_emulator(struct xwl_seat *xwl_seat)
+{
+    if (xwl_seat->confined_pointer)
+        xwl_seat_destroy_confined_pointer(xwl_seat);
+
+    xwl_seat->pointer_warp_emulator =
+        xwl_pointer_warp_emulator_create(xwl_seat);
+}
+
 void
 xwl_seat_emulate_pointer_warp(struct xwl_seat *xwl_seat,
                               struct xwl_window *xwl_window,
@@ -1205,10 +1218,8 @@ xwl_seat_emulate_pointer_warp(struct xwl_seat *xwl_seat,
     if (xwl_seat->focus_window != xwl_window)
         return;
 
-    if (!xwl_seat->pointer_warp_emulator) {
-        xwl_seat->pointer_warp_emulator =
-            xwl_pointer_warp_emulator_create(xwl_seat);
-    }
+    if (!xwl_seat->pointer_warp_emulator)
+        xwl_seat_create_pointer_warp_emulator(xwl_seat);
 
     if (!xwl_seat->pointer_warp_emulator)
         return;
@@ -1232,6 +1243,50 @@ xwl_seat_destroy_pointer_warp_emulator(struct xwl_seat *xwl_seat)
 
     xwl_pointer_warp_emulator_destroy(xwl_seat->pointer_warp_emulator);
     xwl_seat->pointer_warp_emulator = NULL;
+
+    if (xwl_seat->cursor_confinement_window) {
+        xwl_seat_confine_pointer(xwl_seat,
+                                 xwl_seat->cursor_confinement_window);
+    }
+}
+
+void
+xwl_seat_confine_pointer(struct xwl_seat *xwl_seat,
+                         struct xwl_window *xwl_window)
+{
+    struct zwp_pointer_constraints_v1 *pointer_constraints =
+        xwl_seat->xwl_screen->pointer_constraints;
+
+    xwl_seat->cursor_confinement_window = xwl_window;
+
+    if (xwl_seat->pointer_warp_emulator)
+        return;
+
+    if (!pointer_constraints)
+        return;
+
+    xwl_seat->confined_pointer =
+        zwp_pointer_constraints_v1_confine_pointer(pointer_constraints,
+                                                   xwl_window->surface,
+                                                   xwl_seat->wl_pointer,
+                                                   NULL,
+                                                   ZWP_POINTER_CONSTRAINTS_V1_LIFETIME_PERSISTENT);
+}
+
+static void
+xwl_seat_destroy_confined_pointer(struct xwl_seat *xwl_seat)
+{
+    zwp_confined_pointer_v1_destroy(xwl_seat->confined_pointer);
+    xwl_seat->confined_pointer = NULL;
+}
+
+void
+xwl_seat_unconfine_pointer(struct xwl_seat *xwl_seat)
+{
+    xwl_seat->cursor_confinement_window = NULL;
+
+    if (xwl_seat->confined_pointer)
+        xwl_seat_destroy_confined_pointer(xwl_seat);
 }
 
 void

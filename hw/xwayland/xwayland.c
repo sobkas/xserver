@@ -33,6 +33,7 @@
 #include <compositeext.h>
 #include <glx_extinit.h>
 #include <os.h>
+#include <windowstr.h>
 
 #ifdef XF86VIDMODE
 #include <X11/extensions/xf86vmproto.h>
@@ -138,6 +139,22 @@ xwl_close_screen(ScreenPtr screen)
     return screen->CloseScreen(screen);
 }
 
+static struct xwl_window *
+xwl_window_from_window(WindowPtr window)
+{
+    struct xwl_window *xwl_window;
+
+    while (window) {
+        xwl_window = xwl_window_get(window);
+        if (xwl_window)
+            return xwl_window;
+
+        window = window->parent;
+    }
+
+    return NULL;
+}
+
 static void
 xwl_cursor_warped_to(DeviceIntPtr device,
                      ScreenPtr screen,
@@ -149,18 +166,39 @@ xwl_cursor_warped_to(DeviceIntPtr device,
     struct xwl_seat *xwl_seat = device->public.devicePrivate;
     struct xwl_window *xwl_window;
 
-    while (window) {
-        xwl_window = xwl_window_get(window);
-        if (xwl_window)
-            break;
-
-        window = window->parent;
-    }
-
+    xwl_window = xwl_window_from_window(window);
     if (!xwl_window)
         return;
 
-    xwl_seat_emulate_pointer_warp(xwl_seat, x, y);
+    xwl_seat_emulate_pointer_warp(xwl_seat, xwl_window, x, y);
+}
+
+static void
+xwl_cursor_confined_to(DeviceIntPtr device,
+                       ScreenPtr screen,
+                       WindowPtr window)
+{
+    struct xwl_seat *xwl_seat = device->public.devicePrivate;
+    struct xwl_window *xwl_window;
+    struct xwl_screen *xwl_screen;
+
+    if (!xwl_seat) {
+        xwl_screen = xwl_screen_get(screen);
+        xwl_seat = container_of(xwl_screen->seat_list.prev,
+                                struct xwl_seat,
+                                link);
+    }
+
+    if (window == screen->root) {
+        xwl_seat_unconfine_pointer(xwl_seat);
+        return;
+    }
+
+    xwl_window = xwl_window_from_window(window);
+    if (!xwl_window)
+        return;
+
+    xwl_seat_confine_pointer(xwl_seat, xwl_window);
 }
 
 static void
@@ -756,6 +794,7 @@ xwl_screen_init(ScreenPtr pScreen, int argc, char **argv)
     pScreen->CloseScreen = xwl_close_screen;
 
     pScreen->CursorWarpedTo = xwl_cursor_warped_to;
+    pScreen->CursorConfinedTo = xwl_cursor_confined_to;
 
     return ret;
 }
