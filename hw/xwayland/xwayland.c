@@ -170,7 +170,7 @@ xwl_cursor_warped_to(DeviceIntPtr device,
     if (!xwl_window)
         return;
 
-    xwl_seat_emulate_pointer_warp(xwl_seat, xwl_window, x, y);
+    xwl_seat_emulate_pointer_warp(xwl_seat, xwl_window, sprite, x, y);
 }
 
 static void
