@@ -122,6 +122,13 @@ struct xwl_touch {
 struct xwl_pointer_warp_emulator {
     struct xwl_seat *xwl_seat;
 
+    /* State kept when locking was postponed. */
+    struct {
+        SpritePtr sprite;
+        int x;
+        int y;
+    } pending;
+
     struct zwp_relative_pointer_v1 *relative_pointer;
     struct zwp_locked_pointer_v1 *locked_pointer;
 };
