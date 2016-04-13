@@ -155,6 +155,14 @@ xwl_window_from_window(WindowPtr window)
     return NULL;
 }
 
+static struct xwl_seat *
+xwl_screen_get_default_seat(struct xwl_screen *xwl_screen)
+{
+    return container_of(xwl_screen->seat_list.prev,
+                        struct xwl_seat,
+                        link);
+}
+
 static void
 xwl_cursor_warped_to(DeviceIntPtr device,
                      ScreenPtr screen,
@@ -163,8 +171,12 @@ xwl_cursor_warped_to(DeviceIntPtr device,
                      SpritePtr sprite,
                      int x, int y)
 {
+    struct xwl_screen *xwl_screen = xwl_screen_get(screen);
     struct xwl_seat *xwl_seat = device->public.devicePrivate;
     struct xwl_window *xwl_window;
+
+    if (!xwl_seat)
+        xwl_seat = xwl_screen_get_default_seat(xwl_screen);
 
     xwl_window = xwl_window_from_window(window);
     if (!xwl_window)
@@ -178,16 +190,12 @@ xwl_cursor_confined_to(DeviceIntPtr device,
                        ScreenPtr screen,
                        WindowPtr window)
 {
+    struct xwl_screen *xwl_screen = xwl_screen_get(screen);
     struct xwl_seat *xwl_seat = device->public.devicePrivate;
     struct xwl_window *xwl_window;
-    struct xwl_screen *xwl_screen;
 
-    if (!xwl_seat) {
-        xwl_screen = xwl_screen_get(screen);
-        xwl_seat = container_of(xwl_screen->seat_list.prev,
-                                struct xwl_seat,
-                                link);
-    }
+    if (!xwl_seat)
+        xwl_seat = xwl_screen_get_default_seat(xwl_screen);
 
     if (window == screen->root) {
         xwl_seat_unconfine_pointer(xwl_seat);
