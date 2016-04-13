@@ -1096,15 +1096,27 @@ xwl_seat_create_pointer_warp_emulator(struct xwl_seat *xwl_seat)
 void
 xwl_seat_emulate_pointer_warp(struct xwl_seat *xwl_seat,
                               struct xwl_window *xwl_window,
+                              SpritePtr sprite,
                               int x, int y)
 {
     struct xwl_screen *xwl_screen = xwl_seat->xwl_screen;
+    GrabPtr pointer_grab = xwl_seat->pointer->deviceGrab.grab;
 
     if (!xwl_screen->relative_pointer_manager ||
         !xwl_screen->pointer_constraints)
         return;
 
-    if (xwl_seat->focus_window != xwl_window)
+    /* If there is no grab, and the window doesn't have pointer focus, ignore
+     * the warp, as under Wayland it won't receive input anyway. */
+    if (!pointer_grab && xwl_seat->focus_window != xwl_window)
+        return;
+
+    /* If there is a grab, but it's not an ownerEvents grab and the destination
+     * is not the pointer focus, ignore it, as events wouldn't be delivered
+     * there anyway. */
+    if (pointer_grab &&
+        !pointer_grab->ownerEvents &&
+        XYToWindow(sprite, x, y) != xwl_seat->focus_window->window)
         return;
 
     if (!xwl_seat->pointer_warp_emulator)
