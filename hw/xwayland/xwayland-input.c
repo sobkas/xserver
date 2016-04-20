@@ -72,7 +72,7 @@ xwl_pointer_control(DeviceIntPtr device, PtrCtrl *ctrl)
 }
 
 static int
-xwl_pointer_proc(DeviceIntPtr device, int what)
+xwl_pointer_proc_absolute(DeviceIntPtr device, int what)
 {
 #define NBUTTONS 10
 #define NAXES 4
@@ -107,14 +107,10 @@ xwl_pointer_proc(DeviceIntPtr device, int what)
             return BadValue;
 
         /* Valuators */
-        InitValuatorAxisStruct(device, 0, axes_labels[0],
-                               -1, -1, 0, 0, 0, Absolute);
-        InitValuatorAxisStruct(device, 1, axes_labels[1],
-                               -1, -1, 0, 0, 0, Absolute);
-        InitValuatorAxisStruct(device, 2, axes_labels[2],
-                               NO_AXIS_LIMITS, NO_AXIS_LIMITS, 0, 0, 0, Relative);
-        InitValuatorAxisStruct(device, 3, axes_labels[3],
-                               NO_AXIS_LIMITS, NO_AXIS_LIMITS, 0, 0, 0, Relative);
+        InitValuatorAxisStruct(device, 0, axes_labels[0], -1, -1, 0, 0, 0, Absolute);
+        InitValuatorAxisStruct(device, 1, axes_labels[1], -1, -1, 0, 0, 0, Absolute);
+        InitValuatorAxisStruct(device, 2, axes_labels[2], NO_AXIS_LIMITS, NO_AXIS_LIMITS, 0, 0, 0, Relative);
+        InitValuatorAxisStruct(device, 3, axes_labels[3], NO_AXIS_LIMITS, NO_AXIS_LIMITS, 0, 0, 0, Relative);
 
         SetScrollValuator(device, 2, SCROLL_TYPE_HORIZONTAL, 1.0, SCROLL_FLAG_NONE);
         SetScrollValuator(device, 3, SCROLL_TYPE_VERTICAL, 1.0, SCROLL_FLAG_PREFERRED);
@@ -140,6 +136,51 @@ xwl_pointer_proc(DeviceIntPtr device, int what)
     return BadMatch;
 
 #undef NBUTTONS
+#undef NAXES
+}
+
+static int
+xwl_pointer_proc_relative(DeviceIntPtr device, int what)
+{
+#define NAXES 2
+    Atom axes_labels[NAXES] = { 0 };
+
+    switch (what) {
+    case DEVICE_INIT:
+        device->public.on = FALSE;
+
+        axes_labels[0] = XIGetKnownProperty(AXIS_LABEL_PROP_REL_X);
+        axes_labels[1] = XIGetKnownProperty(AXIS_LABEL_PROP_REL_Y);
+
+        if (!InitValuatorClassDeviceStruct(device, NAXES, axes_labels,
+                                           GetMotionHistorySize(), Relative))
+            return BadValue;
+
+        /* Valuators */
+        InitValuatorAxisStruct(device, 0, axes_labels[0],
+                               NO_AXIS_LIMITS, NO_AXIS_LIMITS, 1, 0, 1, Relative);
+        InitValuatorAxisStruct(device, 1, axes_labels[1],
+                               NO_AXIS_LIMITS, NO_AXIS_LIMITS, 1, 0, 1, Relative);
+
+        if (!InitPtrFeedbackClassDeviceStruct(device, xwl_pointer_control))
+            return BadValue;
+
+        device->button = NULL;
+
+        return Success;
+
+    case DEVICE_ON:
+        device->public.on = TRUE;
+        return Success;
+
+    case DEVICE_OFF:
+    case DEVICE_CLOSE:
+        device->public.on = FALSE;
+        return Success;
+    }
+
+    return BadMatch;
+
 #undef NAXES
 }
 
@@ -281,10 +322,11 @@ pointer_handle_enter(void *data, struct wl_pointer *pointer,
      * events, perhaps using an X grab whenever the pointer is not in
      * any X window, but for now just send the events. */
     valuator_mask_zero(&mask);
-    for (i = 0; i < dev->button->numButtons; i++)
-        if (BitIsOn(dev->button->down, i))
-            QueuePointerEvents(dev, ButtonRelease, i, 0, &mask);
-
+    if (dev->button != NULL) {
+        for (i = 0; i < dev->button->numButtons; i++)
+            if (BitIsOn(dev->button->down, i))
+                QueuePointerEvents(dev, ButtonRelease, i, 0, &mask);
+    }
     /* The last cursor frame we commited before the pointer left one
      * of our surfaces might not have been shown. In that case we'll
      * have a cursor surface frame callback pending which we need to
@@ -813,16 +855,27 @@ seat_handle_capabilities(void *data, struct wl_seat *seat,
         if (xwl_seat->pointer == NULL) {
             xwl_seat_set_cursor(xwl_seat);
             xwl_seat->pointer =
-                add_device(xwl_seat, "xwayland-pointer", xwl_pointer_proc);
+                add_device(xwl_seat, "xwayland-pointer", xwl_pointer_proc_absolute);
             ActivateDevice(xwl_seat->pointer, TRUE);
         }
         EnableDevice(xwl_seat->pointer, TRUE);
+
+        if (xwl_seat->relative_pointer == NULL) {
+            xwl_seat->relative_pointer =
+                add_device(xwl_seat, "xwayland-relative-pointer", xwl_pointer_proc_relative);
+            ActivateDevice(xwl_seat->relative_pointer, TRUE);
+        }
+        EnableDevice(xwl_seat->relative_pointer, TRUE);
+
     } else if (!(caps & WL_SEAT_CAPABILITY_POINTER) && xwl_seat->wl_pointer) {
         wl_pointer_release(xwl_seat->wl_pointer);
         xwl_seat->wl_pointer = NULL;
 
         if (xwl_seat->pointer)
             DisableDevice(xwl_seat->pointer, TRUE);
+
+        if (xwl_seat->relative_pointer)
+            DisableDevice(xwl_seat->relative_pointer, TRUE);
     }
 
     if (caps & WL_SEAT_CAPABILITY_KEYBOARD && xwl_seat->wl_keyboard == NULL) {
@@ -1200,8 +1253,8 @@ xwl_pointer_warp_emulator_handle_motion(struct xwl_pointer_warp_emulator *warp_e
     valuator_mask_set_unaccelerated(&mask, 0, dx, dx_unaccel);
     valuator_mask_set_unaccelerated(&mask, 1, dy, dy_unaccel);
 
-    QueuePointerEvents(xwl_seat->pointer, MotionNotify, 0,
-                       POINTER_RELATIVE, &mask);
+    QueuePointerEvents(xwl_seat->relative_pointer, MotionNotify, 0,
+                       POINTER_RELATIVE|POINTER_ACCELERATE, &mask);
 
     window = xwl_seat->focus_window->window;
     miPointerGetPosition(xwl_seat->pointer, &x, &y);
