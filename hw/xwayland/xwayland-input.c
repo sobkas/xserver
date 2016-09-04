@@ -1060,7 +1060,7 @@ xwl_xy_to_window(ScreenPtr screen, SpritePtr sprite, int x, int y)
     WindowPtr ret;
 
     for (device = inputInfo.devices; device; device = device->next) {
-        if (device->deviceProc == xwl_pointer_proc &&
+        if (device->deviceProc == xwl_pointer_proc_absolute &&
             device->spriteInfo->sprite == sprite) {
             xwl_seat = device->public.devicePrivate;
             break;
