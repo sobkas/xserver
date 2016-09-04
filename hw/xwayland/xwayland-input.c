@@ -1250,8 +1250,8 @@ xwl_pointer_warp_emulator_handle_motion(struct xwl_pointer_warp_emulator *warp_e
     int x, y;
 
     valuator_mask_zero(&mask);
-    valuator_mask_set_unaccelerated(&mask, 0, dx, dx_unaccel);
-    valuator_mask_set_unaccelerated(&mask, 1, dy, dy_unaccel);
+    valuator_mask_set_unaccelerated(&mask, 0, dx * 4, dx_unaccel);
+    valuator_mask_set_unaccelerated(&mask, 1, dy * 4, dy_unaccel);
 
     QueuePointerEvents(xwl_seat->relative_pointer, MotionNotify, 0,
                        POINTER_RELATIVE|POINTER_ACCELERATE, &mask);
